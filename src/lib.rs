@@ -18,6 +18,7 @@ struct FilterParameters {
     min_aligned_length_pair: u32,
     min_percent_identity_pair: f32,
     min_aligned_percent_pair: f32,
+    min_mapq: u8,
 }
 
 struct EstimatorsAndTaker {
@@ -118,6 +119,7 @@ fn get_coverages_from_bam(
         min_aligned_length_pair: 0,
         min_percent_identity_pair: 0.,
         min_aligned_percent_pair: 0.,
+        min_mapq: 0,
     };
     let estimators = vec![CoverageEstimator::new_estimator_trimmed_mean(
         trim_lower,
@@ -133,6 +135,7 @@ fn get_coverages_from_bam(
         filter_params.min_aligned_length_single,
         filter_params.min_percent_identity_single,
         filter_params.min_aligned_percent_single,
+        filter_parmas.min_mapq,
         filter_params.min_aligned_length_pair,
         filter_params.min_percent_identity_pair,
         filter_params.min_aligned_percent_pair,
@@ -201,18 +204,13 @@ fn get_coverages_from_bam(
         }
         _ => unreachable!(),
     }
-    (
-        headers.into_py(py),
-        matrix.to_pyarray(py).into()
-    )
+    (headers.into_py(py), matrix.to_pyarray(py).into())
 }
 
 fn default_return_value(py: Python, n_files: usize) -> (Py<PyAny>, Py<PyAny>) {
     (
         Vec::<String>::new().into_py(py),
-        Array::from_elem((0, n_files), 0f32)
-            .to_pyarray(py)
-            .into(),
+        Array::from_elem((0, n_files), 0f32).to_pyarray(py).into(),
     )
 }
 
