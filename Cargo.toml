@@ -1,6 +1,6 @@
 [package]
 name = "pycoverm"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2021"
 authors = ["Antonio Camargo <antoniop.camargo@gmail.com>"]
 readme = "README.md"
@@ -12,8 +12,8 @@ name = "pycoverm"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.28.2"
+pyo3 = "0.20.3"
 coverm = { git = "https://github.com/wwood/CoverM", rev = "b75eb6c90b00af4e8fdd6c691efdcc299e8c887c" }
-ndarray = "0.17.2"
-numpy = "0.28.0"
-rust-htslib = { version = "1.0.0", default-features = false }
+ndarray = "0.15.6"
+numpy = "0.20.0"
+rust-htslib = { version = "0.45.0", default-features = false }
