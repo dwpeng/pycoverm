@@ -2,7 +2,8 @@ use coverm::{
     bam_generator::*, contig::*, coverage_takers::*, mosdepth_genome_coverage_estimators::*,
     FlagFilter,
 };
-use ndarray::Array;
+
+use numpy::ndarray::Array;
 use numpy::ToPyArray;
 use pyo3::{prelude::*, wrap_pyfunction};
 use rust_htslib::{bam, bam::Read};
