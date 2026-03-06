@@ -135,7 +135,7 @@ fn get_coverages_from_bam(
         filter_params.min_aligned_length_single,
         filter_params.min_percent_identity_single,
         filter_params.min_aligned_percent_single,
-        filter_parmas.min_mapq,
+        filter_params.min_mapq,
         filter_params.min_aligned_length_pair,
         filter_params.min_percent_identity_pair,
         filter_params.min_aligned_percent_pair,
