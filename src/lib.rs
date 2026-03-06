@@ -3,7 +3,6 @@ use coverm::{
     FlagFilter,
 };
 use ndarray::Array;
-use numpy::pyo3::IntoPy;
 use numpy::ToPyArray;
 use pyo3::{prelude::*, wrap_pyfunction};
 use rust_htslib::{bam, bam::Read};
@@ -97,14 +96,14 @@ fn is_bam_sorted(bam_file: &str) -> PyResult<bool> {
 ))]
 fn get_coverages_from_bam(
     py: Python,
-    bam_list: Vec<&str>,
+    bam_list: Vec<String>,
     contig_end_exclusion: u64,
     min_identity: f32,
     trim_lower: f32,
     trim_upper: f32,
-    contig_set: Option<HashSet<&str>>,
+    contig_set: Option<HashSet<String>>,
     threads: u16,
-) -> (PyObject, PyObject) {
+) -> PyResult<(Vec<String>, Py<PyAny>)> {
     let trim_upper = 1. - trim_upper;
     let min_fraction_covered_bases = 0.;
     let filter_params = FilterParameters {
@@ -129,8 +128,9 @@ fn get_coverages_from_bam(
     )];
     let taker = CoverageTakerType::new_cached_single_float_coverage_taker(estimators.len());
     let mut estimators_and_taker = EstimatorsAndTaker { estimators, taker };
+    let bam_list_refs: Vec<&str> = bam_list.iter().map(String::as_str).collect();
     let bam_readers = generate_filtered_bam_readers_from_bam_files(
-        bam_list.clone(),
+        bam_list_refs.clone(),
         filter_params.flag_filters.clone(),
         filter_params.min_aligned_length_single,
         filter_params.min_percent_identity_single,
@@ -142,11 +142,11 @@ fn get_coverages_from_bam(
     );
 
     // Get the headers from the first file, and verify all files have the same header.
-    let mut headers: Vec<String> = match verify_same_bam_headers(&bam_list, &bam_readers) {
+    let mut headers: Vec<String> = match verify_same_bam_headers(&bam_list_refs, &bam_readers) {
         // If no files: Return early with empty list
         None => {
             assert!(bam_list.is_empty());
-            return default_return_value(py, 0);
+            return Ok(default_return_value(py, 0));
         }
         // Else: Copy the headers, since they must be moved into `contig_coverage` below.
         Some((_, headers)) => headers
@@ -160,7 +160,7 @@ fn get_coverages_from_bam(
     if let Some(ref map) = map {
         // If the empty set is passed, return early with empty list
         if map.is_empty() {
-            return default_return_value(py, bam_list.len());
+            return Ok(default_return_value(py, bam_list.len()));
         }
         let mut itr = map.iter();
         headers.retain(|_| *itr.next().unwrap() != u32::MAX)
@@ -204,13 +204,17 @@ fn get_coverages_from_bam(
         }
         _ => unreachable!(),
     }
-    (headers.into_py(py), matrix.to_pyarray(py).into())
+    let matrix_py = matrix.to_pyarray(py).into_any().unbind();
+    Ok((headers, matrix_py))
 }
 
-fn default_return_value(py: Python, n_files: usize) -> (Py<PyAny>, Py<PyAny>) {
+fn default_return_value(py: Python, n_files: usize) -> (Vec<String>, Py<PyAny>) {
     (
-        Vec::<String>::new().into_py(py),
-        Array::from_elem((0, n_files), 0f32).to_pyarray(py).into(),
+        Vec::<String>::new(),
+        Array::from_elem((0, n_files), 0f32)
+            .to_pyarray(py)
+            .into_any()
+            .unbind(),
     )
 }
 
@@ -219,13 +223,13 @@ fn default_return_value(py: Python, n_files: usize) -> (Py<PyAny>, Py<PyAny>) {
 /// Headers not in names will map to u32::MAX.
 /// Hence, header ["a", "b", "c"] and names ["c", "a"] will give
 /// [0, u32::MAX, 1]
-fn index_map(headers: &[String], names: &HashSet<&str>) -> Vec<u32> {
+fn index_map(headers: &[String], names: &HashSet<String>) -> Vec<u32> {
     // Make sure there are no names in names which are not in headers.
     let mut n_seen: usize = 0;
     let mut result = vec![u32::MAX; headers.len()];
     let mut new_index: u32 = 0;
     for (i, header) in headers.iter().enumerate() {
-        if names.contains(&header.as_str()) {
+        if names.contains(header) {
             result[i] = new_index;
             new_index += 1;
             n_seen += 1
@@ -259,8 +263,8 @@ fn verify_same_bam_headers<'a, 'b>(
 }
 
 #[pymodule]
-fn pycoverm(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(is_bam_sorted))?;
-    m.add_wrapped(wrap_pyfunction!(get_coverages_from_bam))?;
+fn pycoverm(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(is_bam_sorted, m)?)?;
+    m.add_function(wrap_pyfunction!(get_coverages_from_bam, m)?)?;
     Ok(())
 }
